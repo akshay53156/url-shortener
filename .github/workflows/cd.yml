@@ -18,8 +18,8 @@ jobs:
       # 2. Setup kubeconfig
       - name: Setup kubeconfig
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
 
       # 3. Deploy MongoDB (only first time)
       - name: Apply Mongo PVC and Deployment
