@@ -1,0 +1,36 @@
+name: CI - Build & Push Images to ACR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repo
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Login to Azure Container Registry
+      - name: Login to ACR
+        run: |
+          echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      # 3. Build & Push Backend
+      - name: Build & Push Backend Image
+        run: |
+          IMAGE_TAG_BACKEND=${{ secrets.ACR_LOGIN_SERVER }}/backend:${{ github.sha }}
+          docker build -t $IMAGE_TAG_BACKEND ./backend
+          docker push $IMAGE_TAG_BACKEND
+          echo "IMAGE_TAG_BACKEND=$IMAGE_TAG_BACKEND" >> $GITHUB_ENV
+
+      # 4. Build & Push Frontend
+      - name: Build & Push Frontend Image
+        run: |
+          IMAGE_TAG_FRONTEND=${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.sha }}
+          docker build -t $IMAGE_TAG_FRONTEND ./frontend
+          docker push $IMAGE_TAG_FRONTEND
+          echo "IMAGE_TAG_FRONTEND=$IMAGE_TAG_FRONTEND" >> $GITHUB_ENV

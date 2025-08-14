@@ -1,0 +1,48 @@
+name: CD - Deploy to AKS
+
+on:
+  workflow_run:
+    workflows: ["CI - Build & Push Images to ACR"]  # Runs after CI completes
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. Setup kubeconfig
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+
+      # 3. Deploy MongoDB (only first time)
+      - name: Apply Mongo PVC and Deployment
+        run: |
+          kubectl apply -f k8s/mongo-pvc.yaml
+          kubectl apply -f k8s/mongo-deployment.yaml
+
+      # 4. Deploy Backend (always updates)
+      - name: Deploy Backend
+        run: |
+          sed -i "s|<IMAGE_TAG>|${{ env.IMAGE_TAG_BACKEND }}|g" k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+
+      # 5. Deploy Frontend (always updates)
+      - name: Deploy Frontend
+        run: |
+          sed -i "s|<IMAGE_TAG>|${{ env.IMAGE_TAG_FRONTEND }}|g" k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+
+      # 6. Verify Deployments
+      - name: Get Pods & Services
+        run: |
+          kubectl get pods
+          kubectl get svc
