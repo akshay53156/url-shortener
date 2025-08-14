@@ -30,7 +30,8 @@ jobs:
       # 3. Login to ACR
       - name: Login to ACR
         run: |
-          az acr login --name $ACR_NAME
+          echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} \
+          -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
       # 4. Build & Push Backend
       - name: Build & Push Backend Image
