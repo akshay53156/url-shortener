@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: democontainerregistry123.azurecr.io/akshay53156/backend:<IMAGE_TAG>
+          image: <BACKEND_IMAGE>
           ports:
             - containerPort: 5000
           env:
