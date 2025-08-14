@@ -1,1 +1,3 @@
 node_modules/
+.terraform
+aks-acr-terraform-demo/
