@@ -7,7 +7,7 @@ on:
 
 env:
   ACR_NAME: democontainerregistry123
-  ACR_REPO: akshay53156/backend
+  ACR_REPO: backend
   K8S_NAMESPACE: default
 
 jobs:
