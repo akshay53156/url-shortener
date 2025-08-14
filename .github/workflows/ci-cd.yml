@@ -49,29 +49,29 @@ jobs:
           docker build -t $ACR_NAME.azurecr.io/$FRONTEND_REPO:$IMAGE_TAG ./frontend
           docker push $ACR_NAME.azurecr.io/$FRONTEND_REPO:$IMAGE_TAG
 
-      # 6. Get latest backend image tag
-      - name: Get latest backend image tag
-        run: |
-          LATEST_BACKEND_TAG=$(az acr repository show-tags \
-            --name $ACR_NAME \
-            --repository $BACKEND_REPO \
-            --orderby time_desc \
-            --output tsv \
-            --top 1)
-          echo "LATEST_BACKEND_TAG=$LATEST_BACKEND_TAG" >> $GITHUB_ENV
-          echo "✅ Latest backend image tag: $LATEST_BACKEND_TAG"
+      # # 6. Get latest backend image tag
+      # - name: Get latest backend image tag
+      #   run: |
+      #     LATEST_BACKEND_TAG=$(az acr repository show-tags \
+      #       --name $ACR_NAME \
+      #       --repository $BACKEND_REPO \
+      #       --orderby time_desc \
+      #       --output tsv \
+      #       --top 1)
+      #     echo "LATEST_BACKEND_TAG=$LATEST_BACKEND_TAG" >> $GITHUB_ENV
+      #     echo "✅ Latest backend image tag: $LATEST_BACKEND_TAG"
 
-      # 7. Get latest frontend image tag
-      - name: Get latest frontend image tag
-        run: |
-          LATEST_FRONTEND_TAG=$(az acr repository show-tags \
-            --name $ACR_NAME \
-            --repository $FRONTEND_REPO \
-            --orderby time_desc \
-            --output tsv \
-            --top 1)
-          echo "LATEST_FRONTEND_TAG=$LATEST_FRONTEND_TAG" >> $GITHUB_ENV
-          echo "✅ Latest frontend image tag: $LATEST_FRONTEND_TAG"
+      # # 7. Get latest frontend image tag
+      # - name: Get latest frontend image tag
+      #   run: |
+      #     LATEST_FRONTEND_TAG=$(az acr repository show-tags \
+      #       --name $ACR_NAME \
+      #       --repository $FRONTEND_REPO \
+      #       --orderby time_desc \
+      #       --output tsv \
+      #       --top 1)
+      #     echo "LATEST_FRONTEND_TAG=$LATEST_FRONTEND_TAG" >> $GITHUB_ENV
+      #     echo "✅ Latest frontend image tag: $LATEST_FRONTEND_TAG"
 
       # 8. Connect to AKS
       - name: Get AKS Credentials
@@ -84,14 +84,14 @@ jobs:
       # 9. Update backend deployment with latest image
       - name: Update backend-deployment.yaml
         run: |
-          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${BACKEND_REPO}:${LATEST_BACKEND_TAG}|g" k8s/backend-deployment.yaml
+          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${BACKEND_REPO}:${BACKEND_IMAGE_TAG}|g" k8s/backend-deployment.yaml
           echo "✅ Updated backend image line:"
           grep "image:" k8s/backend-deployment.yaml
 
       # 10. Update frontend deployment with latest image
       - name: Update frontend-deployment.yaml
         run: |
-          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${FRONTEND_REPO}:${LATEST_FRONTEND_TAG}|g" k8s/frontend-deployment.yaml
+          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${FRONTEND_REPO}:${FRONTEND_IMAGE_TAG}|g" k8s/frontend-deployment.yaml
           echo "✅ Updated frontend image line:"
           grep "image:" k8s/frontend-deployment.yaml
 
