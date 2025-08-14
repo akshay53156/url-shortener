@@ -62,6 +62,8 @@ jobs:
       - name: Deploy Backend
         run: |
           sed -i "s|<IMAGE_TAG>|${{ env.IMAGE_TAG_BACKEND }}|g" k8s/backend-deployment.yaml
+          echo "✅ Final backend-deployment.yaml content (checking image line):"
+          grep "image:" k8s/backend-deployment.yaml
           kubectl apply -f k8s/backend-deployment.yaml
           kubectl apply -f k8s/backend-service.yaml
 
