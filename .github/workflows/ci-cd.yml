@@ -1,4 +1,4 @@
-name: CI-CD to AKS
+name: CI/CD - Full Stack App
 
 on:
   push:
@@ -7,98 +7,77 @@ on:
 
 env:
   ACR_NAME: democontainerregistry123
-  BACKEND_REPO: backend
-  FRONTEND_REPO: frontend
-  AKS_RESOURCE_GROUP: demo-rg
-  AKS_CLUSTER_NAME: demoakscluster
+  ACR_LOGIN_SERVER: democontainerregistry123.azurecr.io
+  K8S_NAMESPACE: default
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
-      - name: Checkout code
+      # 1️⃣ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Azure Login
-      - name: Azure Login
-        uses: azure/login@v2
+      # 2️⃣ Azure Login
+      - name: Azure CLI login
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Login to ACR
-      - name: Login to ACR
+      # 3️⃣ Azure ACR Login
+      - name: Azure Container Registry Login
+        run: az acr login --name $ACR_NAME
+
+      # 4️⃣ Build & Push Backend Image
+      - name: Build & Push Backend
         run: |
-          echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} \
-          -u ${{ secrets.ACR_USERNAME }} --password-stdin
+          BACKEND_TAG=$(date +%Y%m%d%H%M%S)
+          docker build -t $ACR_LOGIN_SERVER/backend:$BACKEND_TAG ./backend
+          docker push $ACR_LOGIN_SERVER/backend:$BACKEND_TAG
+          echo "BACKEND_TAG=$BACKEND_TAG" >> $GITHUB_ENV
 
-      # 4. Build & Push Backend
-      - name: Build & Push Backend Image
+      # 5️⃣ Build & Push Frontend Image
+      - name: Build & Push Frontend
         run: |
-          IMAGE_TAG=$(date +%Y%m%d%H%M%S)
-          echo "BACKEND_IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-          docker build -t $ACR_NAME.azurecr.io/$BACKEND_REPO:$IMAGE_TAG ./backend
-          docker push $ACR_NAME.azurecr.io/$BACKEND_REPO:$IMAGE_TAG
+          FRONTEND_TAG=$(date +%Y%m%d%H%M%S)
+          docker build -t $ACR_LOGIN_SERVER/frontend:$FRONTEND_TAG ./frontend
+          docker push $ACR_LOGIN_SERVER/frontend:$FRONTEND_TAG
+          echo "FRONTEND_TAG=$FRONTEND_TAG" >> $GITHUB_ENV
 
-      # 5. Build & Push Frontend
-      - name: Build & Push Frontend Image
+      # 6️⃣ Build & Push Mongo Image (if custom)
+      - name: Build & Push Mongo
         run: |
-          IMAGE_TAG=$(date +%Y%m%d%H%M%S)
-          echo "FRONTEND_IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-          docker build -t $ACR_NAME.azurecr.io/$FRONTEND_REPO:$IMAGE_TAG ./frontend
-          docker push $ACR_NAME.azurecr.io/$FRONTEND_REPO:$IMAGE_TAG
+          MONGO_TAG=$(date +%Y%m%d%H%M%S)
+          docker build -t $ACR_LOGIN_SERVER/mongo:$MONGO_TAG ./mongo
+          docker push $ACR_LOGIN_SERVER/mongo:$MONGO_TAG
+          echo "MONGO_TAG=$MONGO_TAG" >> $GITHUB_ENV
 
-      # # 6. Get latest backend image tag
-      # - name: Get latest backend image tag
-      #   run: |
-      #     LATEST_BACKEND_TAG=$(az acr repository show-tags \
-      #       --name $ACR_NAME \
-      #       --repository $BACKEND_REPO \
-      #       --orderby time_desc \
-      #       --output tsv \
-      #       --top 1)
-      #     echo "LATEST_BACKEND_TAG=$LATEST_BACKEND_TAG" >> $GITHUB_ENV
-      #     echo "✅ Latest backend image tag: $LATEST_BACKEND_TAG"
+      # 7️⃣ Setup kubectl
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
 
-      # # 7. Get latest frontend image tag
-      # - name: Get latest frontend image tag
-      #   run: |
-      #     LATEST_FRONTEND_TAG=$(az acr repository show-tags \
-      #       --name $ACR_NAME \
-      #       --repository $FRONTEND_REPO \
-      #       --orderby time_desc \
-      #       --output tsv \
-      #       --top 1)
-      #     echo "LATEST_FRONTEND_TAG=$LATEST_FRONTEND_TAG" >> $GITHUB_ENV
-      #     echo "✅ Latest frontend image tag: $LATEST_FRONTEND_TAG"
-
-      # 8. Connect to AKS
-      - name: Get AKS Credentials
+      # 8️⃣ Get AKS Credentials
+      - name: AKS login
         run: |
           az aks get-credentials \
-            --resource-group $AKS_RESOURCE_GROUP \
-            --name $AKS_CLUSTER_NAME \
+            --resource-group ${{ secrets.AKS_RG }} \
+            --name ${{ secrets.AKS_NAME }} \
             --overwrite-existing
 
-      # 9. Update backend deployment with latest image
-      - name: Update backend-deployment.yaml
+      # 9️⃣ Update Kubernetes Manifests
+      - name: Update Kubernetes YAMLs
         run: |
-          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${BACKEND_REPO}:${BACKEND_IMAGE_TAG}|g" k8s/backend-deployment.yaml
-          echo "✅ Updated backend image line:"
-          grep "image:" k8s/backend-deployment.yaml
+          sed -i "s|<BACKEND_IMAGE>|$ACR_LOGIN_SERVER/backend:${BACKEND_TAG}|g" k8s/backend-deployment.yaml
+          sed -i "s|<FRONTEND_IMAGE>|$ACR_LOGIN_SERVER/frontend:${FRONTEND_TAG}|g" k8s/frontend-deployment.yaml
+          sed -i "s|<MONGO_IMAGE>|$ACR_LOGIN_SERVER/mongo:${MONGO_TAG}|g" k8s/mongo-deployment.yaml
 
-      # 10. Update frontend deployment with latest image
-      - name: Update frontend-deployment.yaml
+      # 🔟 Deploy to AKS
+      - name: Apply Manifests
         run: |
-          sed -i "s|<IMAGE>|${ACR_NAME}.azurecr.io/${FRONTEND_REPO}:${FRONTEND_IMAGE_TAG}|g" k8s/frontend-deployment.yaml
-          echo "✅ Updated frontend image line:"
-          grep "image:" k8s/frontend-deployment.yaml
-
-      # 11. Apply Kubernetes manifests
-      - name: Deploy to AKS
-        run: |
-          kubectl apply -f k8s/backend-deployment.yaml
-          kubectl apply -f k8s/backend-service.yaml
-          kubectl apply -f k8s/frontend-deployment.yaml
-          kubectl apply -f k8s/frontend-service.yaml
+          kubectl apply -f k8s/mongo-deployment.yaml -n $K8S_NAMESPACE
+          kubectl apply -f k8s/mongo-service.yaml -n $K8S_NAMESPACE
+          kubectl apply -f k8s/backend-deployment.yaml -n $K8S_NAMESPACE
+          kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
+          kubectl apply -f k8s/frontend-deployment.yaml -n $K8S_NAMESPACE
+          kubectl apply -f k8s/frontend-service.yaml -n $K8S_NAMESPACE
