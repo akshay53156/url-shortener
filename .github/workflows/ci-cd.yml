@@ -45,14 +45,6 @@ jobs:
           docker push $ACR_LOGIN_SERVER/frontend:$FRONTEND_TAG
           echo "FRONTEND_TAG=$FRONTEND_TAG" >> $GITHUB_ENV
 
-      # 6️⃣ Build & Push Mongo Image (if custom)
-      - name: Build & Push Mongo
-        run: |
-          MONGO_TAG=$(date +%Y%m%d%H%M%S)
-          docker build -t $ACR_LOGIN_SERVER/mongo:$MONGO_TAG ./mongo
-          docker push $ACR_LOGIN_SERVER/mongo:$MONGO_TAG
-          echo "MONGO_TAG=$MONGO_TAG" >> $GITHUB_ENV
-
       # 7️⃣ Setup kubectl
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
